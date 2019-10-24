@@ -12,6 +12,7 @@ import {
   ServiceList,
 } from './styled'
 import Service from './Service'
+import FooterVersion from '../footer-version'
 
 interface State {
   opened: boolean
@@ -80,6 +81,8 @@ export class StatusButton extends Component<
             {services.map(service => (
               <Service key={service.serviceType} service={service} />
             ))}
+
+            <FooterVersion />
           </ServiceList>
         </ServiceListPopup>
       </Root>
