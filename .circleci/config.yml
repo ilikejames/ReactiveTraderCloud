@@ -4,7 +4,23 @@ jobs:
     machine:
       enabled: true
     steps:
+      - run:
+          name: 'local build setup'
+          command: |
+            if [[ ${CIRCLE_SHELL_ENV} =~ "localbuild" ]]; then
+              mkdir -p /tmp
+              mkdir -p /tmp/_circleci_local_build_repo
+            fi
       - checkout
+      - run:
+          name: 'current state of repo'
+          command: |
+            set -x
+            git --version
+            ls /home/circleci/project #circleci/project
+            ls /tmp
+            ls /tmp/_circleci_local_build_repo
+            ls /tmp/circleci-*
       - run:
           name: 'Configure the environment'
           command: |
@@ -18,64 +34,64 @@ jobs:
           command: 'docker network create -d bridge circleci'
       - run:
           name: Build client
-          command: 'cd ./src/client  && docker build -t ${DOCKER_USER}/client:${CIRCLE_BUILD_NUM} .'
+          command: 'cd ./src/client  && docker build -t ${DOCKER_USER}/client:${TMP_BUILD_NUM} .'
       - run:
           name: Build servers
-          command: 'cd ./src/server && docker build -t ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} .'
+          command: 'cd ./src/server && docker build -t ${DOCKER_USER}/servers:${TMP_BUILD_NUM} .'
       - run:
           name: Build nginx
-          command: 'cd ./src/services/nginx  && docker build -t ${DOCKER_USER}/nginx:${CIRCLE_BUILD_NUM} .'
+          command: 'cd ./src/services/nginx  && docker build -t ${DOCKER_USER}/nginx:${TMP_BUILD_NUM} .'
       - run:
           name: Build broker
-          command: 'cd ./src/services/broker  && docker build -t ${DOCKER_USER}/broker:${CIRCLE_BUILD_NUM} .'
+          command: 'cd ./src/services/broker  && docker build -t ${DOCKER_USER}/broker:${TMP_BUILD_NUM} .'
       - run:
           name: Build eventstore
           command: 'cd ./src/services/eventstore  && docker build -t ${DOCKER_USER}/baseeventstore .'
       - run:
           name: Build pricehistory
-          command: 'cd ./src/server/Adaptive.ReactiveTrader.Server.PriceHistory/ && docker build -t ${DOCKER_USER}/pricehistory:${CIRCLE_BUILD_NUM} .'
+          command: 'cd ./src/server/Adaptive.ReactiveTrader.Server.PriceHistory/ && docker build -t ${DOCKER_USER}/pricehistory:${TMP_BUILD_NUM} .'
       - run:
           name: Build bot
-          command: 'cd ./src/server/Adaptive.ReactiveTrader.Server.Bot/ && docker build -t ${DOCKER_USER}/bot:${CIRCLE_BUILD_NUM} .'
+          command: 'cd ./src/server/Adaptive.ReactiveTrader.Server.Bot/ && docker build -t ${DOCKER_USER}/bot:${TMP_BUILD_NUM} .'
       - run:
           name: Build nlp
-          command: 'cd ./src/node-server/ && docker build -t ${DOCKER_USER}/nlp:${CIRCLE_BUILD_NUM} -f ./Nlp.Dockerfile .'
+          command: 'cd ./src/node-server/ && docker build -t ${DOCKER_USER}/nlp:${TMP_BUILD_NUM} -f ./Nlp.Dockerfile .'
       - run:
           name: Build smoketest
           command: 'cd ./src/client-tests/ && docker build -t ${DOCKER_USER}/smoketest:${CIRCLE_BUILD_NUM} .'
       - run:
           name: Run broker
-          command: 'docker run -d --net circleci --name broker ${DOCKER_USER}/broker:${CIRCLE_BUILD_NUM}'
+          command: 'docker run -d --net circleci --name broker ${DOCKER_USER}/broker:${TMP_BUILD_NUM}'
       - run:
           name: Run eventstore
           command: 'docker run -d --net circleci --name eventstore ${DOCKER_USER}/baseeventstore'
       - run:
           name: Populate eventstore
-          command: 'docker run --net circleci --name servers ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Launcher.dll config.prod.json --populate-eventstore'
+          command: 'docker run --net circleci --name servers ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Launcher.dll config.prod.json --populate-eventstore'
       - run:
           name: Save eventstore
-          command: 'docker commit eventstore ${DOCKER_USER}/eventstore:${CIRCLE_BUILD_NUM}'
+          command: 'docker commit eventstore ${DOCKER_USER}/eventstore:${TMP_BUILD_NUM}'
       - run:
           name: Run analytics
-          command: 'docker run -d --net circleci --name analytics ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Analytics.dll config.prod.json'
+          command: 'docker run -d --net circleci --name analytics ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Analytics.dll config.prod.json'
       - run:
           name: Run pricing
-          command: 'docker run -d --net circleci --name pricing ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Pricing.dll config.prod.json'
+          command: 'docker run -d --net circleci --name pricing ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Pricing.dll config.prod.json'
       - run:
           name: Run referencedataread
-          command: 'docker run -d --net circleci --name referencedataread ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.ReferenceDataRead.dll config.prod.json'
+          command: 'docker run -d --net circleci --name referencedataread ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.ReferenceDataRead.dll config.prod.json'
       - run:
           name: Run tradeexecution
-          command: 'docker run -d --net circleci --name tradeexecution ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.TradeExecution.dll config.prod.json'
+          command: 'docker run -d --net circleci --name tradeexecution ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.TradeExecution.dll config.prod.json'
       - run:
           name: Run blotter
-          command: 'docker run -d --net circleci --name blotter ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Blotter.dll config.prod.json'
+          command: 'docker run -d --net circleci --name blotter ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet ./Adaptive.ReactiveTrader.Server.Blotter.dll config.prod.json'
       - run:
           name: Run nginx
-          command: 'docker run -d --net circleci -p 80:80 --name nginx ${DOCKER_USER}/nginx:${CIRCLE_BUILD_NUM}'
+          command: 'docker run -d --net circleci -p 80:80 --name nginx ${DOCKER_USER}/nginx:${TMP_BUILD_NUM}'
       - run:
           name: Run client
-          command: 'docker run -d --net circleci --name client ${DOCKER_USER}/client:${CIRCLE_BUILD_NUM}'
+          command: 'docker run -d --net circleci --name client ${DOCKER_USER}/client:${TMP_BUILD_NUM}'
       - run:
           name: List containers
           command: 'docker ps'
@@ -84,17 +100,17 @@ jobs:
           command: 'docker ps -q -a | xargs -t -L 1 docker logs'
       - run:
           name: Run server tests
-          command: 'docker run --net circleci --name tests ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM} dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll'  
+          command: 'docker run --net circleci --name tests ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll'
       - run:
           name: Build client tests
-          command: 'cd ./src/client && docker build -t ${DOCKER_USER}/client-test${CIRCLE_BUILD_NUM} -f ./Dockerfile.dev .'
+          command: 'cd ./src/client && docker build -t ${DOCKER_USER}/client-test:${TMP_BUILD_NUM} -f ./Dockerfile.dev .'
       - run:
           name: Run client tests
-          command: 'docker run -e CI=true ${DOCKER_USER}/client-test${CIRCLE_BUILD_NUM} npm run test -- --coverage'
+          command: 'docker run -e CI=true ${DOCKER_USER}/client-test:${TMP_BUILD_NUM} npm run test -- --coverage'
       - run:
           name: 'Run e2e tests'
-          command: 'docker run --net circleci --name smoketest -t ${DOCKER_USER}/smoketest:${CIRCLE_BUILD_NUM} sh -c "sleep 30 && npm run e2e -- --chromeDriver=/usr/bin/chromedriver --baseUrl=http://nginx"'
-      - run: 
+          command: 'docker run --net circleci --name smoketest -t ${DOCKER_USER}/smoketest:${TMP_BUILD_NUM} sh -c "sleep 30 && npm run e2e -- --chromeDriver=/usr/bin/chromedriver --baseUrl=http://nginx"'
+      - run:
           name: 'Output smoke test results'
           command: 'docker log smoketest'
       - run:
@@ -108,21 +124,20 @@ jobs:
           name: Push images to dockerhub
           command: |
             echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-            docker push ${DOCKER_USER}/client:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/pricehistory:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/bot:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/nlp:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/servers:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/broker:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/eventstore:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/nginx:${CIRCLE_BUILD_NUM}
-            docker push ${DOCKER_USER}/smoketest:${CIRCLE_BUILD_NUM}
-
+            docker push ${DOCKER_USER}/client:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/pricehistory:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/bot:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/nlp:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/servers:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/broker:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/eventstore:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/nginx:${TMP_BUILD_NUM}
+            docker push ${DOCKER_USER}/smoketest:${TMP_BUILD_NUM}
       - run:
           name: Store build number
           command: |
             mkdir -p envs
-            echo "export BUILD_NUM=${CIRCLE_BUILD_NUM}" >> envs/env_build_num
+            echo "export BUILD_NUM=${TMP_BUILD_NUM}" >> envs/env_build_num
       - persist_to_workspace:
           root: envs
           paths:
