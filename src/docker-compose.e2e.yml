@@ -1,0 +1,13 @@
+version: '3'
+services:
+  e2e:
+    image: e2e:${BUILD_VERSION}
+    build:
+      dockerfile: Dockerfile
+      context: ./client-tests
+    command: 'sleep 10 && npm run e2e -- --chromeDriver=/usr/bin/chromedriver --baseUrl=http://nginx'
+    depends_on:
+      - client
+      - nginx
+      - eventstore
+      - blotter

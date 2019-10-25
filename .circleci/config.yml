@@ -4,27 +4,47 @@ jobs:
     machine:
       enabled: true
     steps:
+      - checkout
+      - run:
+          name: semver_minor
+          command: |
+            LAST_TAG="$(git describe --tags)"
+            echo "Original tag: $LAST_TAG"
+            NEW_TAG="$(./semver bump minor ${LAST_TAG} || echo 1.0.0)"
+            echo "New Tag: $NEW_TAG"
+            echo "export BUILD_VERSION=$NEW_TAG" >> ~/.profile
+            git tag $NEW_TAG
+            echo "Created new tag: $(git describe --tags)"
       - run:
           name: 'Install docker-compose'
           command: |
             curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
             chmod +x ~/docker-compose
             sudo mv ~/docker-compose /usr/local/bin/docker-compose
-      - checkout
       - run:
           name: 'docker-compose build'
           command: |
-            TAG=1.119.0 docker-compose -f ./src/docker-compose.yml build nginx # --parallel
+            BUILD_VERSION="$(git describe --tags)" DOCKER_USER=adaptive docker-compose -f ./src/docker-compose.yml build --parallel
+      - run:
+          name: 'Server Integration Tests'
+          command: |
+            LAST_TAG="$(git describe --tags)"
+            docker-compose run --net circleci --name tests ${DOCKER_USER}/servers:$LAST_TAG dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
+          # command: 'docker run --net circleci --name tests ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll'
+      - run:
+          name: 'Sleep'
+          command: 'sleep 60000'
 
-  semver_minor:
-      machine:
-        enabled: true
-      steps:
-        - run:
-            name: semver_minor
-            command: |
-              LAST_TAG="$(git describe --abbr=0)"
-              LATEST="$(semver bump minor ${LAST_TAG} || echo 1.0.0)"
+  # set_semver_minor:
+  #     machine:
+  #       enabled: true
+  #     steps:
+  #       - run:
+  #           name: semver_minor
+  #           command: |
+  #             LAST_TAG="$(git describe --abbr=0)"
+  #             NEW_TAG="$(semver bump minor ${LAST_TAG} || echo 1.0.0)"
+  #             echo 'export TAG=$NEW_TAG' >> ~/.profile
 
   build_and_test:
     machine:
@@ -76,6 +96,7 @@ jobs:
       - run:
           name: Build smoketest
           command: 'cd ./src/client-tests/ && docker build -t ${DOCKER_USER}/smoketest:${TMP_BUILD_NUM} .'
+      # RUN commands
       - run:
           name: Run broker
           command: 'docker run -d --net circleci --name broker ${DOCKER_USER}/broker:${TMP_BUILD_NUM}'

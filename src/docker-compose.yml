@@ -1,17 +1,17 @@
 version: '3'
 services:
   eventstore:
-    image: eventstore:${TAG}
+    image: ${DOCKER_USER}/eventstore:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./services/eventstore
   broker:
-    image: broker:${TAG}
+    image: ${DOCKER_USER}/broker:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./services/broker
   servers:
-    image: servers:${TAG}
+    image: ${DOCKER_USER}/servers:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./server
@@ -19,7 +19,7 @@ services:
       - eventstore
     command: 'dotnet ./Adaptive.ReactiveTrader.Server.Launcher.dll config.prod.json --populate-eventstore'
   nginx:
-    image: nginx:${TAG}
+    image: ${DOCKER_USER}/nginx:${BUILD_VERSION}
     restart: always
     build:
       dockerfile: Dockerfile
@@ -30,19 +30,8 @@ services:
     build:
       dockerfile: Dockerfile
       context: ./client
-  smoketest:
-    image: smoketest:${TAG}
-    build:
-      dockerfile: Dockerfile
-      context: ./client-tests
-    command: 'npm run e2e -- --chromeDriver=/usr/bin/chromedriver --baseUrl=http://nginx'
-    depends_on:
-      - client
-      - nginx
-      - eventstore
-      - blotter
   analytics:
-    image: analytics:${TAG}
+    image: ${DOCKER_USER}/analytics:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./server
@@ -51,7 +40,7 @@ services:
       - broker
       - eventstore
   pricing:
-    image: pricing:${TAG}
+    image: ${DOCKER_USER}/pricing:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./server
@@ -61,7 +50,7 @@ services:
       - eventstore
       - analytics
   referencedataread:
-    image: referencedataread:${TAG}
+    image: ${DOCKER_USER}/referencedataread:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./server
@@ -71,7 +60,7 @@ services:
       - eventstore
       - pricing
   tradeexecution:
-    image: tradeexecution:${TAG}
+    image: ${DOCKER_USER}/tradeexecution:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./server
@@ -81,7 +70,7 @@ services:
       - eventstore
       - referencedataread
   blotter:
-    image: blotter:${TAG}
+    image: ${DOCKER_USER}/blotter:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile
       context: ./server
@@ -91,7 +80,7 @@ services:
       - eventstore
       - tradeexecution
   pricehistory:
-    image: pricehistory:${TAG}
+    image: ${DOCKER_USER}/pricehistory:${BUILD_VERSION}
     build:
       dockerfile: Dockerfile.dev
       context: ./server/Adaptive.ReactiveTrader.Server.PriceHistory
@@ -102,7 +91,7 @@ services:
      - BROKER_HOST=broker
      - BROKER_PORT=8000
   nlp:
-    image: nlp
+    image: ${DOCKER_USER}/nlp
     build:
       dockerfile: Nlp.Dockerfile
       context: ./node-server
