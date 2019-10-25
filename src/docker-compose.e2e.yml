@@ -1,5 +1,17 @@
 version: '3'
 services:
+  # populate_with_test_data:
+  #   # image: ${DOCKER_USER}/servers:${BUILD_VERSION}
+  #   depends_on: servers
+  #   command: dotnet ./Adaptive.ReactiveTrader.Server.Launcher.dll config.prod.json --populate-eventstore
+
+  integration:
+    image: ${DOCKER_USER}/servers:${BUILD_VERSION}
+    hostname: integration
+    container_name: integration
+    depends_on:
+      - servers
+    command: sleep 70000 # dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
   e2e:
     image: e2e:${BUILD_VERSION}
     build:

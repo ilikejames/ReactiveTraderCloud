@@ -1,8 +1,8 @@
 version: 2
 jobs:
-  compose_test:
-    machine:
-      enabled: true
+  setup:
+    docker:
+      - image: docker:edge-git
     steps:
       - checkout
       - run:
@@ -16,24 +16,50 @@ jobs:
             git tag $NEW_TAG
             echo "Created new tag: $(git describe --tags)"
       - run:
-          name: 'Install docker-compose'
+          name: 'Install Tools'
           command: |
+            # bash
+            apt-get install bash
+            curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
+            chmod +x ~/docker-compose
+            sudo mv ~/docker-compose /usr/local/bin/docker-compose
+  compose_test:
+    machine:
+      enabled: true
+    steps:
+      - checkout
+      - run:
+          name: semver_minor
+          command: |
+            LAST_TAG="$(git describe --tags)"
+            echo "Original tag: $LAST_TAG"
+            NEW_TAG="$(./semver bump minor ${LAST_TAG} || echo 1.0.0)"
+            echo "New Tag: $NEW_TAG"
+            echo "export BUILD_VERSION=$NEW_TAG" >> $BASH_ENV
+            echo "export DOCKER_USER=$DOCKER_USER" >> $BASH_ENV
+            git tag $NEW_TAG
+            echo "Created new tag: $(git describe --tags)"
+      - run:
+          name: 'Install Tools'
+          command: |
+            # sudo apt-get install bash
             curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
             chmod +x ~/docker-compose
             sudo mv ~/docker-compose /usr/local/bin/docker-compose
       - run:
           name: 'docker-compose build'
           command: |
-            BUILD_VERSION="$(git describe --tags)" DOCKER_USER=adaptive docker-compose -f ./src/docker-compose.yml build --parallel
-      - run:
-          name: 'Server Integration Tests'
-          command: |
-            LAST_TAG="$(git describe --tags)"
-            docker-compose run --net circleci --name tests ${DOCKER_USER}/servers:$LAST_TAG dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
-          # command: 'docker run --net circleci --name tests ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll'
+            docker-compose -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml build --parallel servers broker nlp bot pricehistory
+      # - run:
+      #     name: 'Server Integration Tests'
+      #     command: |
+      #       docker-compose run --net circleci --name tests $DOCKER_USER/servers:$BUILD_VERSION dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
+      #     # command: 'docker run --net circleci --name tests ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll'
       - run:
           name: 'Sleep'
-          command: 'sleep 60000'
+          command: |
+            sleep 60000
+            # push nginx eventstore broker servers nlp bot pricehistory client
 
   # set_semver_minor:
   #     machine:
