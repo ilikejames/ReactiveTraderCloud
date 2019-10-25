@@ -11,7 +11,7 @@ services:
     container_name: integration
     depends_on:
       - servers
-    command: sleep 70000 # dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
+    command: dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
   e2e:
     image: e2e:${BUILD_VERSION}
     build:
