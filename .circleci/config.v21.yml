@@ -1,13 +1,5 @@
 version: 2.1
 commands:
-  install_tools:
-    description: 'Install docker-compose'
-    steps:
-      - run: |
-          apk add curl
-          curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
-          chmod +x ~/docker-compose
-          mv ~/docker-compose /usr/local/bin/docker-compose
   semver:
     description: "Setup semver version for this release"
     parameters:
@@ -30,25 +22,18 @@ commands:
     description: "Build the deployable container images"
     steps:
       - run: |
-          docker-compose \
-            -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml \
-            build
+          docker-compose -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml build
   run_tests:
     description: "Runs the integration tests"
     steps:
       - run: |
-          docker-compose \
-            -f ./src/docker-compose.yml \
-            run \
-            --use-aliases \
-            --name test \
-            servers \
-            dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
+          docker-compose -f ./src/docker-compose.yml run --use-aliases --name test \
+            servers dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
   push_images:
     steps:
       - run: |
           echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-          docker-compose -f src/docker-compose.deploy.yml push
+          docker-compose -f src/docker-compose.deploy.yml -f src/docker/compose.yml push
   deploy:
     description: "Deploy the specific version to gcloud"
     # parameters:
@@ -65,23 +50,16 @@ commands:
           # gcloud config set project ${GOOGLE_PROJECT_ID}
           # gcloud config set compute/zone ${GOOGLE_COMPUTE_ZONE}
           # gcloud container clusters get-credentials cluster
-
           # # TODO: use docker stack deploy?
 
 
 jobs:
   release_build:
-    # docker:
-    #   - image: circleci/node
-    #   # - image: docker:edge-git
-    # # docker:
-    # #   - image: tmaier/docker-compose:latest
     machine:
         docker_layer_caching: true
     steps:
       - attach_workspace:
           at: /envs
-      # - install_tools
       - checkout
       - semver:
           bump: minor
@@ -114,11 +92,9 @@ workflows:
   main:
     jobs:
       - release_build:
-          # context: org-global
           filters:
             branches:
               only: master
       - deploy:
-          # context: org-global
           requires:
             - release_build

@@ -20,18 +20,11 @@ jobs:
           echo "Created new tag: $(git describe --tags)"
     - run:
         command: |
-          docker-compose \
-            -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml \
-            build
+          docker-compose -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml build
     - run:
         command: |
-          docker-compose \
-            -f ./src/docker-compose.yml \
-            run \
-            --use-aliases \
-            --name test \
-            servers \
-            dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
+          docker-compose -f ./src/docker-compose.yml run --use-aliases --name test \
+            servers dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
     - run:
         command: |
           # set environment variables for deployment
@@ -70,14 +63,6 @@ workflows:
 # Original config.yml file:
 # version: 2.1
 # commands:
-#   install_tools:
-#     description: 'Install docker-compose'
-#     steps:
-#       - run: |
-#           apk add curl
-#           curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
-#           chmod +x ~/docker-compose
-#           mv ~/docker-compose /usr/local/bin/docker-compose
 #   semver:
 #     description: \"Setup semver version for this release\"
 #     parameters:
@@ -100,25 +85,18 @@ workflows:
 #     description: \"Build the deployable container images\"
 #     steps:
 #       - run: |
-#           docker-compose \\
-#             -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml \\
-#             build
+#           docker-compose -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml build
 #   run_tests:
 #     description: \"Runs the integration tests\"
 #     steps:
 #       - run: |
-#           docker-compose \\
-#             -f ./src/docker-compose.yml \\
-#             run \\
-#             --use-aliases \\
-#             --name test \\
-#             servers \\
-#             dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
+#           docker-compose -f ./src/docker-compose.yml run --use-aliases --name test \\
+#             servers dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
 #   push_images:
 #     steps:
 #       - run: |
 #           echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-#           docker-compose -f src/docker-compose.deploy.yml push
+#           docker-compose -f src/docker-compose.deploy.yml -f src/docker/compose.yml push
 #   deploy:
 #     description: \"Deploy the specific version to gcloud\"
 #     # parameters:
