@@ -22,13 +22,13 @@ jobs:
         command: |
           docker-compose \
             -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml \
-            build # --parallel
+            build
     - run:
         command: |
           docker-compose \
             -f ./src/docker-compose.yml \
             run \
-            --use-aliases
+            --use-aliases \
             --name test \
             servers \
             dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
@@ -51,6 +51,10 @@ jobs:
           cat $BASH_ENV
           cat /envs/vars >> $BASH_ENV;
           cat $BASH_ENV
+    - run:
+        command: |
+          # push new tag upstream
+          # git push --follow-tags
 workflows:
   version: 2
   main:
@@ -98,7 +102,7 @@ workflows:
 #       - run: |
 #           docker-compose \\
 #             -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml \\
-#             build # --parallel
+#             build
 #   run_tests:
 #     description: \"Runs the integration tests\"
 #     steps:
@@ -106,7 +110,7 @@ workflows:
 #           docker-compose \\
 #             -f ./src/docker-compose.yml \\
 #             run \\
-#             --use-aliases
+#             --use-aliases \\
 #             --name test \\
 #             servers \\
 #             dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
@@ -171,6 +175,9 @@ workflows:
 #           cat $BASH_ENV
 #           cat /envs/vars >> $BASH_ENV;
 #           cat $BASH_ENV
+#       - run: |
+#           # push new tag upstream
+#           # git push --follow-tags
 # 
 # workflows:
 #   version: 2.1
