@@ -4,9 +4,10 @@ commands:
     description: 'Install docker-compose'
     steps:
       - run: |
+          apk add curl
           curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
           chmod +x ~/docker-compose
-          sudo mv ~/docker-compose /usr/local/bin/docker-compose
+          mv ~/docker-compose /usr/local/bin/docker-compose
   semver:
     description: "Setup semver version for this release"
     parameters:
@@ -30,9 +31,8 @@ commands:
     steps:
       - run: |
           docker-compose \
-            # -f ./src/docker-compose.yml \
-            -f ./src/docker-compose.deploy.yml \
-            build --parallel eventstore servers
+            -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml \
+            build # --parallel
   run_tests:
     description: "Runs the integration tests"
     steps:
@@ -71,30 +71,51 @@ commands:
 
 jobs:
   release_build:
-    machine:
-      enabled: true
     # docker:
-    #   - image: tmaier/docker-compose:latest
+    #   - image: circleci/node
+    #   # - image: docker:edge-git
+    # # docker:
+    # #   - image: tmaier/docker-compose:latest
+    machine:
+        docker_layer_caching: true
     steps:
-      - install_tools
+      - attach_workspace:
+          at: /envs
+      # - install_tools
       - checkout
       - semver:
           bump: minor
       - build_images
       - run_tests
       - run: |
-         # set environment variables for deployment
-         echo "export DEPLOY_TARGET=dev" >> $BASH_ENV
-         cat ${BASH_ENV}
-      - deploy
+          # set environment variables for deployment
+          echo "export DEPLOY_TARGET=dev" >> $BASH_ENV
+          cat ${BASH_ENV}
+          mkdir -p envs
+          echo "export DEPLOY_TARGET=$DEPLOY_TARGET" >> envs/vars
+          echo "export BUILD_VERSION=$BUILD_VERSION" >> envs/vars
 
+  deploy:
+    docker:
+      - image: google/cloud-sdk
+    steps:
+      - attach_workspace:
+          at: /envs
+      - run: |
+          cat $BASH_ENV
+          cat /envs/vars >> $BASH_ENV;
+          cat $BASH_ENV
 
 workflows:
   version: 2.1
   main:
     jobs:
       - release_build:
+          # context: org-global
           filters:
             branches:
               only: master
-
+      - deploy:
+          # context: org-global
+          requires:
+            - release_build
