@@ -1,5 +1,56 @@
-version: 2
+version: 2.1
+commands:
+  semver:
+    description: "Setup semver version for this release"
+    parameters:
+      bump:
+        default: "minor"
+        description: The semver bump type. Must be one of "major", "minor", "patch".
+        type: enum
+        enum: ["major", "minor", "patch"]
+    steps:
+      - run: |
+          LAST_TAG="$(git describe --tags)"
+          echo "Original tag: $LAST_TAG"
+          NEW_TAG="$(./semver bump << parameters.bump >> ${LAST_TAG} || echo 1.0.0)"
+          echo "New Tag: $NEW_TAG"
+          echo "export BUILD_VERSION=$NEW_TAG" >> $BASH_ENV
+          echo "export DOCKER_USER=$DOCKER_USER" >> $BASH_ENV
+          git tag $NEW_TAG
+          echo "Created new tag: $(git describe --tags)"
+  build_images:
+    description: "Build the deployable container images"
+    steps:
+      - run: |
+          docker-compose \
+            # -f ./src/docker-compose.yml \
+            -f ./src/docker-compose.deploy.yml \
+            build --parallel eventstore servers
+  run_tests:
+    description: "Runs the integration tests"
+    steps:
+      - run: |
+          docker-compose \
+            -f ./src/docker-compose.yml \
+            run \
+            --use-aliases
+            --name test \
+            servers \
+            dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
+
 jobs:
+  release_build:
+    docker:
+      - image: tmaier/docker-compose:latest
+    steps:
+      - checkout
+      # - install_tools
+      - semver:
+          bump: minor
+      - build_images
+      - run_tests
+      # - push tags
+      # - push images
   setup:
     docker:
       - image: docker:edge-git
@@ -18,8 +69,6 @@ jobs:
       - run:
           name: 'Install Tools'
           command: |
-            # bash
-            apt-get install bash
             curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
             chmod +x ~/docker-compose
             sudo mv ~/docker-compose /usr/local/bin/docker-compose
@@ -42,35 +91,47 @@ jobs:
       - run:
           name: 'Install Tools'
           command: |
-            # sudo apt-get install bash
             curl -L https://github.com/docker/compose/releases/download/1.24.1/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
             chmod +x ~/docker-compose
             sudo mv ~/docker-compose /usr/local/bin/docker-compose
       - run:
-          name: 'docker-compose build'
+          name: 'Build Images'
           command: |
-            docker-compose -f ./src/docker-compose.yml -f ./src/docker-compose.deploy.yml build --parallel servers broker nlp bot pricehistory
-      # - run:
-      #     name: 'Server Integration Tests'
-      #     command: |
-      #       docker-compose run --net circleci --name tests $DOCKER_USER/servers:$BUILD_VERSION dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
-      #     # command: 'docker run --net circleci --name tests ${DOCKER_USER}/servers:${TMP_BUILD_NUM} dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll'
+            docker-compose \
+              # -f ./src/docker-compose.yml \
+              -f ./src/docker-compose.deploy.yml \
+              build --parallel eventstore servers
       - run:
-          name: 'Sleep'
+          name: 'Server Integration Tests'
           command: |
-            sleep 60000
-            # push nginx eventstore broker servers nlp bot pricehistory client
+            docker-compose \
+              -f ./src/docker-compose.yml \
+              run \
+              --use-aliases
+              --name test \
+              servers \
+              dotnet vstest ./Adaptive.ReactiveTrader.Server.IntegrationTests.dll
 
-  # set_semver_minor:
-  #     machine:
-  #       enabled: true
-  #     steps:
-  #       - run:
-  #           name: semver_minor
-  #           command: |
-  #             LAST_TAG="$(git describe --abbr=0)"
-  #             NEW_TAG="$(semver bump minor ${LAST_TAG} || echo 1.0.0)"
-  #             echo 'export TAG=$NEW_TAG' >> ~/.profile
+      - run:
+          name: Skip this job for Pull Requests
+          command: '[[ -v CIRCLE_PR_NUMBER ]] && circleci step halt || true'
+
+      - run:
+          name: 'Push To DockerHub'
+          command: |
+            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+            # docker push ${DOCKER_USER}/client:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/pricehistory:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/bot:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/nlp:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/servers:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/broker:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/eventstore:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/nginx:${TMP_BUILD_NUM}
+            # docker push ${DOCKER_USER}/smoketest:${TMP_BUILD_NUM}
+
+            docker-compose -f src/docker-compose.yml push client pricehistory bot nlp servers broker eventstore nginx
+
 
   build_and_test:
     machine:
@@ -248,16 +309,27 @@ jobs:
             kubectl --namespace=${NAMESPACE} set image deployments/pricehistory-deployment pricehistory=${DOCKER_USER}/pricehistory:${BUILD_NUM}
             kubectl --namespace=${NAMESPACE} set image deployments/bot-deployment bot=${DOCKER_USER}/bot:${BUILD_NUM}
 
+# workflows:
+#   version: 2
+#   main:
+#     jobs:
+#       - build_and_test
+#       - deploy:
+#           requires:
+#             - build_and_test
+#           filters:
+#             branches:
+#               only:
+#                 - master
+#                 - develop
+
 workflows:
   version: 2
   main:
     jobs:
-      - build_and_test
-      - deploy:
-          requires:
-            - build_and_test
+      - release_build:
           filters:
             branches:
               only:
                 - master
-                - develop
+

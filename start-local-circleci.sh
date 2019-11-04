@@ -1,8 +1,8 @@
 CIRCLE_DOCKER_RUN_ARGUMENTS="-v /var/run/docker.sock:/var/run/docker.sock"  \
     circleci local execute \
     \ #--job build_and_test \
-    --job compose_test \
-    --skip-checkout=false \
+    --job release_build \
+    --skip-checkout=true \
     --repo-url="/fake-remote" \
     --volume="/Users/james/code/ReactiveTraderCloud":"/fake-remote" \
     --env DOCKER_USER=weareadaptive \
